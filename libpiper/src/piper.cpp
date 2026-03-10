@@ -90,6 +90,10 @@ struct piper_synthesizer *piper_create(const char *model_path,
                 inference_value["noise_w"].get<float>();
         }
     }
+    
+    if (config.contains("phoneme_type")) {
+        synth->phoneme_type = config["phoneme_type"].get<PhonemeType>();
+    }
 
     // Load onnx model
     synth->session_options.DisableCpuMemArena();
@@ -138,7 +142,7 @@ int piper_synthesize_start(struct piper_synthesizer *synth, const char *text,
     if (espeak_SetVoiceByName(synth->espeak_voice.c_str()) != EE_OK) {
         return PIPER_ERR_GENERIC;
     }
-
+    
     // Clear state
     while (!synth->phoneme_id_queue.empty()) {
         synth->phoneme_id_queue.pop();
@@ -159,42 +163,57 @@ int piper_synthesize_start(struct piper_synthesizer *synth, const char *text,
 
     // phonemize
     std::vector<std::string> sentence_phonemes{""};
-    std::size_t current_idx = 0;
-    const void *text_ptr = text;
-    while (text_ptr != nullptr) {
-        int terminator = 0;
-        std::string terminator_str = "";
+    switch (synth->phoneme_type) {
+        case PhonemeType::Espeak:
+        {
+            std::size_t current_idx = 0;
+            const void *text_ptr = text;
+            while (text_ptr != nullptr) {
+                int terminator = 0;
+                std::string terminator_str = "";
+                
+                const char *phonemes = espeak_TextToPhonemesWithTerminator(
+                                                                           &text_ptr, espeakCHARS_AUTO, espeakPHONEMES_IPA, &terminator);
 
-        const char *phonemes = espeak_TextToPhonemesWithTerminator(
-            &text_ptr, espeakCHARS_AUTO, espeakPHONEMES_IPA, &terminator);
-
-        if (phonemes) {
-            sentence_phonemes[current_idx] += phonemes;
+                if (phonemes) {
+                    sentence_phonemes[current_idx] += phonemes;
+                }
+                
+                // Categorize terminator
+                terminator &= 0x000FFFFF;
+                
+                if (terminator == CLAUSE_PERIOD) {
+                    terminator_str = ".";
+                } else if (terminator == CLAUSE_QUESTION) {
+                    terminator_str = "?";
+                } else if (terminator == CLAUSE_EXCLAMATION) {
+                    terminator_str = "!";
+                } else if (terminator == CLAUSE_COMMA) {
+                    terminator_str = ", ";
+                } else if (terminator == CLAUSE_COLON) {
+                    terminator_str = ": ";
+                } else if (terminator == CLAUSE_SEMICOLON) {
+                    terminator_str = "; ";
+                }
+                
+                sentence_phonemes[current_idx] += terminator_str;
+                
+                if ((terminator & CLAUSE_TYPE_SENTENCE) == CLAUSE_TYPE_SENTENCE) {
+                    sentence_phonemes.push_back("");
+                    current_idx = sentence_phonemes.size() - 1;
+                }
+            }
+            break;
         }
-
-        // Categorize terminator
-        terminator &= 0x000FFFFF;
-
-        if (terminator == CLAUSE_PERIOD) {
-            terminator_str = ".";
-        } else if (terminator == CLAUSE_QUESTION) {
-            terminator_str = "?";
-        } else if (terminator == CLAUSE_EXCLAMATION) {
-            terminator_str = "!";
-        } else if (terminator == CLAUSE_COMMA) {
-            terminator_str = ", ";
-        } else if (terminator == CLAUSE_COLON) {
-            terminator_str = ": ";
-        } else if (terminator == CLAUSE_SEMICOLON) {
-            terminator_str = "; ";
+        case PhonemeType::Text:
+        {
+            std::string nfd_text = una::norm::to_nfd_utf8(text);
+            sentence_phonemes.clear();
+            sentence_phonemes.push_back(nfd_text);
+            break;
         }
-
-        sentence_phonemes[current_idx] += terminator_str;
-
-        if ((terminator & CLAUSE_TYPE_SENTENCE) == CLAUSE_TYPE_SENTENCE) {
-            sentence_phonemes.push_back("");
-            current_idx = sentence_phonemes.size() - 1;
-        }
+        default:
+            return PIPER_ERR_GENERIC;
     }
 
     // phonemes to ids
@@ -415,3 +434,4 @@ int piper_synthesize_next(struct piper_synthesizer *synth,
 
     return PIPER_OK;
 }
+
