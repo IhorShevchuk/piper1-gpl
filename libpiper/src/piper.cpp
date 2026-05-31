@@ -101,7 +101,7 @@ struct piper_synthesizer *piper_create(const char *model_path,
     synth->session_options.DisableProfiling();
 
     synth->session = std::make_unique<Ort::Session>(
-        Ort::Session(ort_env, model_path, synth->session_options));
+        Ort::Session(get_ort_env(), model_path, synth->session_options));
 
     return synth;
 }

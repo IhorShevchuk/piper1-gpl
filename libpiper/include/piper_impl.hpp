@@ -35,7 +35,10 @@ const float DEFAULT_NOISE_W_SCALE = 0.8f;
 const int DEFAULT_HOP_LENGTH = 256;
 
 // onnx
-Ort::Env ort_env{ORT_LOGGING_LEVEL_WARNING, "piper"};
+inline Ort::Env& get_ort_env() {
+    static Ort::Env ort_env{ORT_LOGGING_LEVEL_WARNING, "piper"};
+    return ort_env;
+}
 
 // espeak
 #define CLAUSE_INTONATION_FULL_STOP 0x00000000
@@ -84,7 +87,6 @@ struct piper_synthesizer {
     std::unique_ptr<Ort::Session> session;
     Ort::AllocatorWithDefaultOptions session_allocator;
     Ort::SessionOptions session_options;
-    Ort::Env session_env;
 
     // synthesize state
     std::queue<std::pair<std::vector<Phoneme>, std::vector<PhonemeId>>>
