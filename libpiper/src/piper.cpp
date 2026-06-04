@@ -207,7 +207,8 @@ int piper_synthesize_start(struct piper_synthesizer *synth, const char *text,
         }
         case PhonemeType::Text:
         {
-            std::string nfd_text = una::norm::to_nfd_utf8(text);
+            std::string lower_text = una::cases::to_lowercase_utf8(text);
+            std::string nfd_text = una::norm::to_nfd_utf8(lower_text);
             sentence_phonemes.clear();
             sentence_phonemes.push_back(nfd_text);
             break;
@@ -434,4 +435,3 @@ int piper_synthesize_next(struct piper_synthesizer *synth,
 
     return PIPER_OK;
 }
-
