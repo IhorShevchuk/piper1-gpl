@@ -3,7 +3,7 @@
 
 #include <array>
 #include <fstream>
-#include <limits>
+#include <limits> 
 
 #include <espeak-ng/speak_lib.h>
 
@@ -27,12 +27,18 @@ struct piper_synthesizer *piper_create(const char *model_path,
     std::ifstream config_stream(config_path_str);
     auto config = json::parse(config_stream);
 
-    if (espeak_Initialize(AUDIO_OUTPUT_SYNCHRONOUS, 0, espeak_data_path, 0) <
+    PhonemeType phoneme_type = PhonemeType::Text;
+    if (config.contains("phoneme_type")) {
+        phoneme_type = config["phoneme_type"].get<PhonemeType>();
+    }
+
+    if (phoneme_type == PhonemeType::Espeak && espeak_Initialize(AUDIO_OUTPUT_SYNCHRONOUS, 0, espeak_data_path, 0) <
         0) {
         return nullptr;
     }
 
     piper_synthesizer *synth = new piper_synthesizer();
+    synth->phoneme_type = phoneme_type;
 
     // Load config options
     synth->espeak_voice = "en-us"; // default
@@ -90,10 +96,6 @@ struct piper_synthesizer *piper_create(const char *model_path,
                 inference_value["noise_w"].get<float>();
         }
     }
-    
-    if (config.contains("phoneme_type")) {
-        synth->phoneme_type = config["phoneme_type"].get<PhonemeType>();
-    }
 
     // Load onnx model
     synth->session_options.DisableCpuMemArena();
@@ -139,7 +141,8 @@ int piper_synthesize_start(struct piper_synthesizer *synth, const char *text,
         return PIPER_ERR_GENERIC;
     }
 
-    if (espeak_SetVoiceByName(synth->espeak_voice.c_str()) != EE_OK) {
+    if (synth->phoneme_type == PhonemeType::Espeak &&
+       espeak_SetVoiceByName(synth->espeak_voice.c_str()) != EE_OK) {
         return PIPER_ERR_GENERIC;
     }
     
