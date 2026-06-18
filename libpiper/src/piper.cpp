@@ -100,6 +100,11 @@ struct piper_synthesizer *piper_create(const char *model_path,
     synth->session_options.DisableMemPattern();
     synth->session_options.DisableProfiling();
 
+    synth->session_options.SetIntraOpNumThreads(1);
+    synth->session_options.SetInterOpNumThreads(1);
+    synth->session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_BASIC);
+    synth->session_options.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
+
     synth->session = std::make_unique<Ort::Session>(
         Ort::Session(get_ort_env(), model_path, synth->session_options));
 
@@ -319,7 +324,7 @@ int piper_synthesize_next(struct piper_synthesizer *synth,
     synth->phoneme_id_queue.pop();
 
     auto memoryInfo = Ort::MemoryInfo::CreateCpu(
-        OrtAllocatorType::OrtArenaAllocator, OrtMemType::OrtMemTypeDefault);
+        OrtAllocatorType::OrtDeviceAllocator, OrtMemType::OrtMemTypeDefault);
 
     // Allocate
     std::vector<int64_t> phoneme_id_lengths{(int64_t)next_ids.size()};
