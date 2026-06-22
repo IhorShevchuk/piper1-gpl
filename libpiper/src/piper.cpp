@@ -26,8 +26,12 @@ struct piper_synthesizer *piper_create(const char *model_path,
 
     std::ifstream config_stream(config_path_str);
     auto config = json::parse(config_stream);
+    PhonemeType phoneme_type = PhonemeType::Espeak;
+    if (config.contains("phoneme_type")) {
+        phoneme_type = config["phoneme_type"].get<PhonemeType>();
+    }
 
-    if (espeak_Initialize(AUDIO_OUTPUT_SYNCHRONOUS, 0, espeak_data_path, 0) <
+    if (phoneme_type == PhonemeType::Espeak && espeak_Initialize(AUDIO_OUTPUT_SYNCHRONOUS, 0, espeak_data_path, 0) <
         0) {
         return nullptr;
     }
@@ -91,10 +95,8 @@ struct piper_synthesizer *piper_create(const char *model_path,
         }
     }
     
-    if (config.contains("phoneme_type")) {
-        synth->phoneme_type = config["phoneme_type"].get<PhonemeType>();
-    }
-
+    synth->phoneme_type = phoneme_type;
+    
     // Load onnx model
     synth->session_options.DisableCpuMemArena();
     synth->session_options.DisableMemPattern();
@@ -144,7 +146,7 @@ int piper_synthesize_start(struct piper_synthesizer *synth, const char *text,
         return PIPER_ERR_GENERIC;
     }
 
-    if (espeak_SetVoiceByName(synth->espeak_voice.c_str()) != EE_OK) {
+    if (synth->phoneme_type == PhonemeType::Espeak && espeak_SetVoiceByName(synth->espeak_voice.c_str()) != EE_OK) {
         return PIPER_ERR_GENERIC;
     }
     
@@ -218,6 +220,12 @@ int piper_synthesize_start(struct piper_synthesizer *synth, const char *text,
             sentence_phonemes.push_back(nfd_text);
             break;
         }
+
+        case PhonemeType::Pinyin:
+        {
+            return PIPER_ERR_GENERIC; 
+        }
+
         default:
             return PIPER_ERR_GENERIC;
     }
