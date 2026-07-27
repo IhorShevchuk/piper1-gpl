@@ -4,7 +4,17 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+#if defined(__has_include)
+#if __has_include(<uchar.h>)
 #include <uchar.h>
+#endif
+#endif
+
+#if !defined(__cplusplus) && !defined(__char32_t_defined)
+typedef uint32_t char32_t;
+#define __char32_t_defined
+#endif
 
 #if defined(WIN32) && (defined(__GNUC__) || defined(_MSC_VER))
 #if defined(BUILDING_LIBPIPER)

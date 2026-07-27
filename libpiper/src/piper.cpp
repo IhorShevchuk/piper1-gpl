@@ -237,6 +237,9 @@ int piper_synthesize_start(struct piper_synthesizer *synth, const char *text,
     sentence_phonemes.push_back(nfd_text);
     break;
   }
+  case PhonemeType::Pinyin: {
+    return PIPER_ERR_GENERIC;
+  }
   case PhonemeType::Invalid: {
     return PIPER_ERR_GENERIC;
   }
